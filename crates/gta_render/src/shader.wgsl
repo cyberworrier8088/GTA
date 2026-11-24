@@ -12,6 +12,11 @@ var<uniform> camera: CameraUniform;
 @group(1) @binding(0)
 var<uniform> model_transform: ModelUniform;
 
+@group(2) @binding(0)
+var t_diffuse: texture_2d<f32>;
+@group(2) @binding(1)
+var s_diffuse: sampler;
+
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) normal: vec3<f32>,
@@ -42,20 +47,24 @@ fn vs_main(model: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    // Sample texture
+    let tex_color = textureSample(t_diffuse, s_diffuse, in.uv);
+    let base_color = tex_color * in.color;
+
     // Directional sunlight (Liberty City overcast sun)
     let light_dir = normalize(vec3<f32>(0.5, 0.8, 0.3));
     let n = normalize(in.normal);
     let diff = max(dot(n, light_dir), 0.0);
-    let ambient = 0.45;
-    let light_intensity = ambient + diff * 0.55;
+    let ambient = 0.40;
+    let light_factor = ambient + diff * 0.60;
 
     // Classic Liberty City distance atmospheric fog
     let fog_color = vec3<f32>(0.24, 0.30, 0.38);
     let dist = length(in.world_pos);
     let fog_factor = clamp((dist - 40.0) / 180.0, 0.0, 0.90);
 
-    let lit_rgb = in.color.rgb * light_intensity;
+    let lit_rgb = base_color.rgb * light_factor;
     let final_rgb = mix(lit_rgb, fog_color, fog_factor);
 
-    return vec4<f32>(final_rgb, in.color.a);
+    return vec4<f32>(final_rgb, base_color.a);
 }

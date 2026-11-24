@@ -5,6 +5,7 @@ use gta_assets::Vertex;
 use crate::camera::{Camera, CameraUniform};
 use crate::depth::DepthTexture;
 use crate::mesh_buffer::GpuMesh;
+use crate::texture::Texture;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -22,7 +23,9 @@ pub struct Renderer {
     pub camera_buffer: wgpu::Buffer,
     pub camera_bind_group: wgpu::BindGroup,
     pub model_bind_group_layout: wgpu::BindGroupLayout,
+    pub texture_bind_group_layout: wgpu::BindGroupLayout,
     pub depth_texture: DepthTexture,
+    pub default_texture_bind_group: wgpu::BindGroup,
     pub camera: Camera,
 }
 
@@ -130,6 +133,45 @@ impl Renderer {
                 label: Some("model_bind_group_layout"),
             });
 
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("texture_bind_group_layout"),
+            });
+
+        let default_white = Texture::create_default_white_texture(&device, &queue);
+        let default_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&default_white.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&default_white.sampler),
+                },
+            ],
+            label: Some("default_texture_bind_group"),
+        });
+
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("GTA Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
@@ -138,7 +180,11 @@ impl Renderer {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout, &model_bind_group_layout],
+                bind_group_layouts: &[
+                    &camera_bind_group_layout,
+                    &model_bind_group_layout,
+                    &texture_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
 
@@ -184,7 +230,7 @@ impl Renderer {
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
                 compilation_options: Default::default(),
@@ -193,7 +239,7 @@ impl Renderer {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
+                cull_mode: None, // Render both sides for thin car glass/panels
                 polygon_mode: wgpu::PolygonMode::Fill,
                 unclipped_depth: false,
                 conservative: false,
@@ -219,7 +265,9 @@ impl Renderer {
             camera_buffer,
             camera_bind_group,
             model_bind_group_layout,
+            texture_bind_group_layout,
             depth_texture,
+            default_texture_bind_group,
             camera,
         }
     }
@@ -259,6 +307,23 @@ impl Renderer {
         (buffer, bind_group)
     }
 
+    pub fn create_texture_bind_group(&self, texture: &Texture) -> wgpu::BindGroup {
+        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                },
+            ],
+            label: Some("custom_texture_bind_group"),
+        })
+    }
+
     pub fn update_camera(&mut self) {
         let uniform = CameraUniform {
             view_proj: self.camera.build_view_projection_matrix().to_cols_array_2d(),
@@ -272,7 +337,7 @@ impl Renderer {
 
     pub fn render_scene(
         &mut self,
-        items: &[(&GpuMesh, &wgpu::BindGroup)],
+        items: &[(&GpuMesh, &wgpu::BindGroup, Option<&wgpu::BindGroup>)],
     ) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
@@ -316,8 +381,10 @@ impl Renderer {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
-            for (mesh, model_bg) in items {
+            for (mesh, model_bg, tex_bg) in items {
                 render_pass.set_bind_group(1, model_bg, &[]);
+                let texture_bg = tex_bg.unwrap_or(&self.default_texture_bind_group);
+                render_pass.set_bind_group(2, texture_bg, &[]);
                 mesh.draw(&mut render_pass);
             }
         }
