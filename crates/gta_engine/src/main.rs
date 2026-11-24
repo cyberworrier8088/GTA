@@ -8,29 +8,29 @@ use winit::{
     window::{CursorGrabMode, WindowBuilder},
 };
 
-use gta_assets::CityGenerator;
-use gta_gameplay::{InputState, Player};
-use gta_render::{GpuMesh, Renderer};
+use gta_assets::{CityGenerator, MeshData};
+use gta_gameplay::{InputState, Player, PlayerState, Vehicle};
+use gta_render::{GpuMesh, HudRenderer, Renderer};
 
 fn main() {
     env_logger::init();
     let event_loop = EventLoop::new().unwrap();
     let window = Arc::new(
         WindowBuilder::new()
-            .with_title("GTA 3: Liberty City - Rust Engine")
+            .with_title("GTA 3: Liberty City - Rust Production Engine")
             .with_inner_size(winit::dpi::LogicalSize::new(1280, 720))
             .build(&event_loop)
             .unwrap(),
     );
 
-    // Try grabbing cursor for 3D mouse look
+    // Lock cursor for authentic 3D look
     let _ = window.set_cursor_grab(CursorGrabMode::Confined)
         .or_else(|_| window.set_cursor_grab(CursorGrabMode::Locked));
     window.set_cursor_visible(false);
 
     let mut renderer = pollster::block_on(Renderer::new(window.clone()));
 
-    // Generate Liberty City meshes
+    // Generate Liberty City world meshes
     let city_mesh_data = CityGenerator::build_city_block();
     let player_mesh_data = CityGenerator::build_player_mesh();
     let car_mesh_data = CityGenerator::build_car_mesh();
@@ -40,12 +40,13 @@ fn main() {
     let car_gpu_mesh = GpuMesh::from_mesh_data(&renderer.device, &car_mesh_data);
 
     let (_city_buf, city_bg) = renderer.create_model_bind_group(Mat4::IDENTITY);
-    let (car_buf, car_bg) = renderer.create_model_bind_group(
-        Mat4::from_translation(Vec3::new(8.0, 0.0, 5.0)) * Mat4::from_rotation_y(0.4),
-    );
+    let (car_buf, car_bg) = renderer.create_model_bind_group(Mat4::IDENTITY);
     let (player_buf, player_bg) = renderer.create_model_bind_group(Mat4::IDENTITY);
+    let (_hud_buf, hud_bg) = renderer.create_model_bind_group(Mat4::IDENTITY);
 
+    // Initial game entities
     let mut player = Player::new();
+    let mut car = Vehicle::new(Vec3::new(8.0, 0.0, 5.0), 0.4);
     let mut input = InputState::default();
     let mut last_time = Instant::now();
 
@@ -105,35 +106,68 @@ fn main() {
                 let dt = (now - last_time).as_secs_f32().min(0.1);
                 last_time = now;
 
-                // Update gameplay
-                player.update(&input, dt);
+                // 1. Update Game Physics & States
+                player.update(&mut car, &input, dt);
                 input.mouse_dx = 0.0;
                 input.mouse_dy = 0.0;
 
-                // Sync 3rd person camera
-                let (eye, target) = player.get_camera_vectors();
+                // 2. Camera tracking
+                let (eye, target) = player.get_camera_vectors(&car);
                 renderer.camera.eye = eye;
                 renderer.camera.target = target;
                 renderer.update_camera();
 
-                // Update Claude player transform
-                let player_transform = Mat4::from_translation(player.position)
+                // 3. Update Car GPU Transform Buffer
+                let car_transform = Mat4::from_translation(car.position)
+                    * Mat4::from_rotation_y(car.yaw);
+                let car_uniform = gta_render::renderer::ModelUniform {
+                    model: car_transform.to_cols_array_2d(),
+                };
+                renderer.queue.write_buffer(
+                    &car_buf,
+                    0,
+                    bytemuck::cast_slice(&[car_uniform]),
+                );
+
+                // 4. Update Player GPU Transform Buffer (hide or position Claude)
+                let player_pos = if player.state == PlayerState::InVehicle {
+                    Vec3::new(0.0, -100.0, 0.0) // hide inside car
+                } else {
+                    player.position
+                };
+                let player_transform = Mat4::from_translation(player_pos)
                     * Mat4::from_rotation_y(player.yaw);
-                let uniform = gta_render::renderer::ModelUniform {
+                let player_uniform = gta_render::renderer::ModelUniform {
                     model: player_transform.to_cols_array_2d(),
                 };
                 renderer.queue.write_buffer(
                     &player_buf,
                     0,
-                    bytemuck::cast_slice(&[uniform]),
+                    bytemuck::cast_slice(&[player_uniform]),
                 );
 
-                // Render scene with 3D Depth
-                let render_items = [
+                // 5. Build dynamic GTA 3 HUD overlay
+                let (hud_verts, hud_indices) = HudRenderer::build_hud_geometry(
+                    renderer.camera.aspect,
+                    player.health,
+                    player.armor,
+                );
+                let hud_mesh_data = MeshData {
+                    name: "hud".to_string(),
+                    vertices: hud_verts,
+                    indices: hud_indices,
+                };
+                let hud_gpu_mesh = GpuMesh::from_mesh_data(&renderer.device, &hud_mesh_data);
+
+                // Render scene items + HUD
+                let mut render_items = vec![
                     (&city_gpu_mesh, &city_bg),
                     (&car_gpu_mesh, &car_bg),
-                    (&player_gpu_mesh, &player_bg),
                 ];
+                if player.state == PlayerState::OnFoot {
+                    render_items.push((&player_gpu_mesh, &player_bg));
+                }
+                render_items.push((&hud_gpu_mesh, &hud_bg));
 
                 match renderer.render_scene(&render_items) {
                     Ok(_) => {}

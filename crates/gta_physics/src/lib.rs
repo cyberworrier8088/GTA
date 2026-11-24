@@ -1,4 +1,9 @@
+pub mod arch_asm;
+
+pub use arch_asm::{fast_inv_sqrt, rdtsc, fast_float_to_int};
+
 use rapier3d::prelude::*;
+
 
 pub struct PhysicsWorld {
     pub rigid_body_set: RigidBodySet,
