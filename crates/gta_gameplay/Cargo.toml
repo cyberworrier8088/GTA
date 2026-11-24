@@ -1,0 +1,9 @@
+[package]
+name = "gta_gameplay"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+glam = "0.27"
+gta_physics = { path = "../gta_physics" }
+gta_assets = { path = "../gta_assets" }

@@ -1,0 +1,9 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/gta_assets",
+    "crates/gta_physics",
+    "crates/gta_render",
+    "crates/gta_gameplay",
+    "crates/gta_engine",
+]

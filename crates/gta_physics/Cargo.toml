@@ -1,0 +1,8 @@
+[package]
+name = "gta_physics"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rapier3d = "0.19"
+glam = "0.27"
