@@ -1,0 +1,13 @@
+[package]
+name = "gta_studio"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "gta_studio"
+path = "src/main.rs"
+
+[dependencies]
+gta_assets = { path = "../gta_assets" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

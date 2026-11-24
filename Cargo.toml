@@ -6,4 +6,5 @@ members = [
     "crates/gta_render",
     "crates/gta_gameplay",
     "crates/gta_engine",
+    "crates/gta_studio",
 ]
