@@ -1,7 +1,16 @@
 use std::sync::Arc;
 use winit::window::Window;
+use glam::Mat4;
 use gta_assets::Vertex;
 use crate::camera::{Camera, CameraUniform};
+use crate::depth::DepthTexture;
+use crate::mesh_buffer::GpuMesh;
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct ModelUniform {
+    pub model: [[f32; 4]; 4],
+}
 
 pub struct Renderer {
     pub surface: wgpu::Surface<'static>,
@@ -12,6 +21,9 @@ pub struct Renderer {
     pub render_pipeline: wgpu::RenderPipeline,
     pub camera_buffer: wgpu::Buffer,
     pub camera_bind_group: wgpu::BindGroup,
+    pub model_bind_group_layout: wgpu::BindGroupLayout,
+    pub depth_texture: DepthTexture,
+    pub camera: Camera,
 }
 
 impl Renderer {
@@ -65,6 +77,8 @@ impl Renderer {
         };
         surface.configure(&device, &config);
 
+        let depth_texture = DepthTexture::create_depth_texture(&device, &config, "depth_texture");
+
         let camera = Camera::new(size.width, size.height);
         let camera_uniform = CameraUniform {
             view_proj: camera.build_view_projection_matrix().to_cols_array_2d(),
@@ -101,6 +115,21 @@ impl Renderer {
             label: Some("camera_bind_group"),
         });
 
+        let model_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("model_bind_group_layout"),
+            });
+
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("GTA Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
@@ -109,7 +138,7 @@ impl Renderer {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout],
+                bind_group_layouts: &[&camera_bind_group_layout, &model_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -169,7 +198,13 @@ impl Renderer {
                 unclipped_depth: false,
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: DepthTexture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
         });
@@ -183,6 +218,9 @@ impl Renderer {
             render_pipeline,
             camera_buffer,
             camera_bind_group,
+            model_bind_group_layout,
+            depth_texture,
+            camera,
         }
     }
 
@@ -192,10 +230,50 @@ impl Renderer {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+            self.depth_texture =
+                DepthTexture::create_depth_texture(&self.device, &self.config, "depth_texture");
+            self.camera.aspect = new_size.width as f32 / new_size.height as f32;
         }
     }
 
-    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    pub fn create_model_bind_group(&self, transform: Mat4) -> (wgpu::Buffer, wgpu::BindGroup) {
+        use wgpu::util::DeviceExt;
+        let uniform = ModelUniform {
+            model: transform.to_cols_array_2d(),
+        };
+        let buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Model Buffer"),
+            contents: bytemuck::cast_slice(&[uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.model_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: buffer.as_entire_binding(),
+            }],
+            label: Some("model_bind_group"),
+        });
+
+        (buffer, bind_group)
+    }
+
+    pub fn update_camera(&mut self) {
+        let uniform = CameraUniform {
+            view_proj: self.camera.build_view_projection_matrix().to_cols_array_2d(),
+        };
+        self.queue.write_buffer(
+            &self.camera_buffer,
+            0,
+            bytemuck::cast_slice(&[uniform]),
+        );
+    }
+
+    pub fn render_scene(
+        &mut self,
+        items: &[(&GpuMesh, &wgpu::BindGroup)],
+    ) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -204,29 +282,44 @@ impl Renderer {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
+                label: Some("Scene Render Encoder"),
             });
 
         {
-            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("GTA 3 Main Render Pass"),
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("GTA 3 Main 3D Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.15,
-                            g: 0.20,
-                            b: 0.25,
+                            r: 0.20,
+                            g: 0.26,
+                            b: 0.33,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
+
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+
+            for (mesh, model_bg) in items {
+                render_pass.set_bind_group(1, model_bg, &[]);
+                mesh.draw(&mut render_pass);
+            }
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
