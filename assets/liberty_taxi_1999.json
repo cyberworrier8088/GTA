@@ -1,0 +1,95 @@
+{
+  "name": "liberty_taxi_1999",
+  "category": "vehicle",
+  "parts": [
+    {
+      "name": "chassis_yellow",
+      "shape": "box",
+      "center": [0.0, 0.45, 0.0],
+      "size": [1.9, 0.60, 4.3],
+      "color": [0.95, 0.78, 0.12, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "bumpers_black",
+      "shape": "box",
+      "center": [0.0, 0.35, 2.15],
+      "size": [1.92, 0.25, 0.25],
+      "color": [0.12, 0.12, 0.12, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "rear_bumper_black",
+      "shape": "box",
+      "center": [0.0, 0.35, -2.15],
+      "size": [1.92, 0.25, 0.25],
+      "color": [0.12, 0.12, 0.12, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "cabin_glass",
+      "shape": "box",
+      "center": [0.0, 0.95, -0.2],
+      "size": [1.65, 0.55, 2.3],
+      "color": [0.20, 0.28, 0.35, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "rooftop_taxi_sign",
+      "shape": "box",
+      "center": [0.0, 1.30, -0.2],
+      "size": [0.85, 0.18, 0.32],
+      "color": [0.98, 0.95, 0.85, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "checkerboard_stripe_left",
+      "shape": "box",
+      "center": [-0.96, 0.50, 0.0],
+      "size": [0.03, 0.15, 3.2],
+      "color": [0.10, 0.10, 0.10, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "checkerboard_stripe_right",
+      "shape": "box",
+      "center": [0.96, 0.50, 0.0],
+      "size": [0.03, 0.15, 3.2],
+      "color": [0.10, 0.10, 0.10, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "wheel_fl",
+      "shape": "box",
+      "center": [-0.95, 0.30, 1.35],
+      "size": [0.25, 0.60, 0.60],
+      "color": [0.08, 0.08, 0.08, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "wheel_fr",
+      "shape": "box",
+      "center": [0.95, 0.30, 1.35],
+      "size": [0.25, 0.60, 0.60],
+      "color": [0.08, 0.08, 0.08, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "wheel_rl",
+      "shape": "box",
+      "center": [-0.95, 0.30, -1.35],
+      "size": [0.25, 0.60, 0.60],
+      "color": [0.08, 0.08, 0.08, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "wheel_rr",
+      "shape": "box",
+      "center": [0.95, 0.30, -1.35],
+      "size": [0.25, 0.60, 0.60],
+      "color": [0.08, 0.08, 0.08, 1.0],
+      "uv_scale": [1.0, 1.0]
+    }
+  ],
+  "collision_box": [1.9, 1.4, 4.3]
+}

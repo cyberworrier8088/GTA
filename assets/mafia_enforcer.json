@@ -1,0 +1,87 @@
+{
+  "name": "mafia_enforcer",
+  "category": "character",
+  "parts": [
+    {
+      "name": "fedora_brim",
+      "shape": "box",
+      "center": [0.0, 1.88, 0.0],
+      "size": [0.55, 0.04, 0.55],
+      "color": [0.08, 0.08, 0.10, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "fedora_crown",
+      "shape": "box",
+      "center": [0.0, 1.98, 0.0],
+      "size": [0.36, 0.18, 0.38],
+      "color": [0.08, 0.08, 0.10, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "fedora_crimson_ribbon",
+      "shape": "box",
+      "center": [0.0, 1.91, 0.0],
+      "size": [0.38, 0.04, 0.40],
+      "color": [0.65, 0.10, 0.12, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "head",
+      "shape": "box",
+      "center": [0.0, 1.70, 0.0],
+      "size": [0.32, 0.32, 0.32],
+      "color": [0.78, 0.62, 0.50, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "white_collar_shirt",
+      "shape": "box",
+      "center": [0.0, 1.48, 0.05],
+      "size": [0.30, 0.12, 0.30],
+      "color": [0.92, 0.92, 0.94, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "red_silk_tie",
+      "shape": "box",
+      "center": [0.0, 1.30, 0.21],
+      "size": [0.08, 0.35, 0.02],
+      "color": [0.70, 0.08, 0.10, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "black_overcoat_torso",
+      "shape": "box",
+      "center": [0.0, 1.15, 0.0],
+      "size": [0.70, 0.80, 0.42],
+      "color": [0.09, 0.09, 0.11, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "overcoat_tails",
+      "shape": "box",
+      "center": [0.0, 0.65, -0.02],
+      "size": [0.68, 0.45, 0.38],
+      "color": [0.09, 0.09, 0.11, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "black_trousers",
+      "shape": "box",
+      "center": [0.0, 0.35, 0.0],
+      "size": [0.55, 0.70, 0.32],
+      "color": [0.06, 0.06, 0.07, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "leather_shoes",
+      "shape": "box",
+      "center": [0.0, 0.05, 0.05],
+      "size": [0.58, 0.10, 0.45],
+      "color": [0.03, 0.03, 0.03, 1.0],
+      "uv_scale": [1.0, 1.0]
+    }
+  ],
+  "collision_box": [0.7, 2.0, 0.4]
+}

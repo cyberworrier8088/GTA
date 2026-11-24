@@ -1,0 +1,71 @@
+{
+  "name": "portland_brick_apartment",
+  "category": "building",
+  "parts": [
+    {
+      "name": "concrete_foundation",
+      "shape": "box",
+      "center": [0.0, 1.5, 0.0],
+      "size": [18.0, 3.0, 22.0],
+      "color": [0.24, 0.24, 0.26, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "gritty_brick_main_tower",
+      "shape": "box",
+      "center": [0.0, 18.0, 0.0],
+      "size": [17.5, 30.0, 21.5],
+      "color": [0.42, 0.21, 0.17, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "cornice_roof_rim",
+      "shape": "box",
+      "center": [0.0, 33.3, 0.0],
+      "size": [18.2, 0.6, 22.2],
+      "color": [0.30, 0.30, 0.32, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "rooftop_access_shack",
+      "shape": "box",
+      "center": [-3.5, 35.0, -2.0],
+      "size": [4.0, 3.0, 5.0],
+      "color": [0.25, 0.26, 0.28, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "water_tank_stilt_base",
+      "shape": "box",
+      "center": [4.0, 34.5, 4.0],
+      "size": [3.2, 2.0, 3.2],
+      "color": [0.18, 0.18, 0.20, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "blue_water_tank_barrel",
+      "shape": "box",
+      "center": [4.0, 37.0, 4.0],
+      "size": [3.8, 3.5, 3.8],
+      "color": [0.15, 0.35, 0.58, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "blue_water_tank_conical_cap",
+      "shape": "box",
+      "center": [4.0, 39.2, 4.0],
+      "size": [3.2, 0.8, 3.2],
+      "color": [0.12, 0.28, 0.48, 1.0],
+      "uv_scale": [1.0, 1.0]
+    },
+    {
+      "name": "fire_escape_iron_racks",
+      "shape": "box",
+      "center": [0.0, 18.0, 11.1],
+      "size": [4.0, 28.0, 0.7],
+      "color": [0.10, 0.10, 0.10, 1.0],
+      "uv_scale": [1.0, 1.0]
+    }
+  ],
+  "collision_box": [18.0, 40.0, 22.0]
+}

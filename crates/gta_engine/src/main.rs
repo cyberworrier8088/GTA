@@ -8,7 +8,7 @@ use winit::{
     window::{CursorGrabMode, WindowBuilder},
 };
 
-use gta_assets::{CityGenerator, MeshData};
+use gta_assets::{AssetManager, CityGenerator, MeshData};
 use gta_gameplay::{InputState, Player, PlayerState, Vehicle};
 use gta_render::{GpuMesh, HudRenderer, Renderer};
 
@@ -17,36 +17,57 @@ fn main() {
     let event_loop = EventLoop::new().unwrap();
     let window = Arc::new(
         WindowBuilder::new()
-            .with_title("GTA 3: Liberty City - Rust Production Engine")
+            .with_title("GTA 3: Liberty City - Live Asset Engine")
             .with_inner_size(winit::dpi::LogicalSize::new(1280, 720))
             .build(&event_loop)
             .unwrap(),
     );
 
-    // Lock cursor for authentic 3D look
     let _ = window.set_cursor_grab(CursorGrabMode::Confined)
         .or_else(|_| window.set_cursor_grab(CursorGrabMode::Locked));
     window.set_cursor_visible(false);
 
     let mut renderer = pollster::block_on(Renderer::new(window.clone()));
 
-    // Generate Liberty City world meshes
+    // 1. Procedural city ground grid
     let city_mesh_data = CityGenerator::build_city_block();
-    let player_mesh_data = CityGenerator::build_player_mesh();
-    let car_mesh_data = CityGenerator::build_car_mesh();
-
     let city_gpu_mesh = GpuMesh::from_mesh_data(&renderer.device, &city_mesh_data);
-    let player_gpu_mesh = GpuMesh::from_mesh_data(&renderer.device, &player_mesh_data);
-    let car_gpu_mesh = GpuMesh::from_mesh_data(&renderer.device, &car_mesh_data);
-
     let (_city_buf, city_bg) = renderer.create_model_bind_group(Mat4::IDENTITY);
-    let (car_buf, car_bg) = renderer.create_model_bind_group(Mat4::IDENTITY);
+
+    // 2. Load New AI-Generated 1999 Liberty Taxi
+    let taxi_mesh_data = AssetManager::load_asset_file("assets/liberty_taxi_1999.json")
+        .unwrap_or_else(|_| CityGenerator::build_car_mesh());
+    let taxi_gpu_mesh = GpuMesh::from_mesh_data(&renderer.device, &taxi_mesh_data);
+    let (taxi_buf, taxi_bg) = renderer.create_model_bind_group(Mat4::IDENTITY);
+
+    // 3. Load New AI-Generated 8-Story Brick Apartment with Water Tanks
+    let apt_mesh_data = AssetManager::load_asset_file("assets/portland_brick_apartment.json")
+        .unwrap_or_else(|_| CityGenerator::build_city_block());
+    let apt_gpu_mesh = GpuMesh::from_mesh_data(&renderer.device, &apt_mesh_data);
+    let (_apt_buf1, apt_bg1) = renderer.create_model_bind_group(
+        Mat4::from_translation(Vec3::new(45.0, 0.0, -30.0)) * Mat4::from_rotation_y(0.0),
+    );
+    let (_apt_buf2, apt_bg2) = renderer.create_model_bind_group(
+        Mat4::from_translation(Vec3::new(-45.0, 0.0, -30.0)) * Mat4::from_rotation_y(3.14),
+    );
+
+    // 4. Load New AI-Generated Mafia Enforcer (Pedestrian / NPC)
+    let mafia_mesh_data = AssetManager::load_asset_file("assets/mafia_enforcer.json")
+        .unwrap_or_else(|_| CityGenerator::build_player_mesh());
+    let mafia_gpu_mesh = GpuMesh::from_mesh_data(&renderer.device, &mafia_mesh_data);
+    let (_mafia_buf, mafia_bg) = renderer.create_model_bind_group(
+        Mat4::from_translation(Vec3::new(2.5, 0.0, 4.0)) * Mat4::from_rotation_y(-1.2),
+    );
+
+    // 5. Player mesh (Claude)
+    let player_mesh_data = CityGenerator::build_player_mesh();
+    let player_gpu_mesh = GpuMesh::from_mesh_data(&renderer.device, &player_mesh_data);
     let (player_buf, player_bg) = renderer.create_model_bind_group(Mat4::IDENTITY);
+
     let (_hud_buf, hud_bg) = renderer.create_model_bind_group(Mat4::IDENTITY);
 
-    // Initial game entities
     let mut player = Player::new();
-    let mut car = Vehicle::new(Vec3::new(8.0, 0.0, 5.0), 0.4);
+    let mut taxi = Vehicle::new(Vec3::new(8.0, 0.0, 5.0), 0.4);
     let mut input = InputState::default();
     let mut last_time = Instant::now();
 
@@ -106,32 +127,32 @@ fn main() {
                 let dt = (now - last_time).as_secs_f32().min(0.1);
                 last_time = now;
 
-                // 1. Update Game Physics & States
-                player.update(&mut car, &input, dt);
+                // Update Player and Taxi physics
+                player.update(&mut taxi, &input, dt);
                 input.mouse_dx = 0.0;
                 input.mouse_dy = 0.0;
 
-                // 2. Camera tracking
-                let (eye, target) = player.get_camera_vectors(&car);
+                // Sync Camera
+                let (eye, target) = player.get_camera_vectors(&taxi);
                 renderer.camera.eye = eye;
                 renderer.camera.target = target;
                 renderer.update_camera();
 
-                // 3. Update Car GPU Transform Buffer
-                let car_transform = Mat4::from_translation(car.position)
-                    * Mat4::from_rotation_y(car.yaw);
-                let car_uniform = gta_render::renderer::ModelUniform {
-                    model: car_transform.to_cols_array_2d(),
+                // Update Taxi GPU Matrix
+                let taxi_transform = Mat4::from_translation(taxi.position)
+                    * Mat4::from_rotation_y(taxi.yaw);
+                let taxi_uniform = gta_render::renderer::ModelUniform {
+                    model: taxi_transform.to_cols_array_2d(),
                 };
                 renderer.queue.write_buffer(
-                    &car_buf,
+                    &taxi_buf,
                     0,
-                    bytemuck::cast_slice(&[car_uniform]),
+                    bytemuck::cast_slice(&[taxi_uniform]),
                 );
 
-                // 4. Update Player GPU Transform Buffer (hide or position Claude)
+                // Update Claude Player GPU Matrix
                 let player_pos = if player.state == PlayerState::InVehicle {
-                    Vec3::new(0.0, -100.0, 0.0) // hide inside car
+                    Vec3::new(0.0, -100.0, 0.0)
                 } else {
                     player.position
                 };
@@ -146,7 +167,7 @@ fn main() {
                     bytemuck::cast_slice(&[player_uniform]),
                 );
 
-                // 5. Build dynamic GTA 3 HUD overlay
+                // Build GTA 3 HUD overlay
                 let (hud_verts, hud_indices) = HudRenderer::build_hud_geometry(
                     renderer.camera.aspect,
                     player.health,
@@ -159,10 +180,13 @@ fn main() {
                 };
                 let hud_gpu_mesh = GpuMesh::from_mesh_data(&renderer.device, &hud_mesh_data);
 
-                // Render scene items + HUD
+                // Render scene with all new assets
                 let mut render_items = vec![
                     (&city_gpu_mesh, &city_bg),
-                    (&car_gpu_mesh, &car_bg),
+                    (&apt_gpu_mesh, &apt_bg1),
+                    (&apt_gpu_mesh, &apt_bg2),
+                    (&mafia_gpu_mesh, &mafia_bg),
+                    (&taxi_gpu_mesh, &taxi_bg),
                 ];
                 if player.state == PlayerState::OnFoot {
                     render_items.push((&player_gpu_mesh, &player_bg));
